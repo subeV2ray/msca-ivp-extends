@@ -1,0 +1,19 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: msca-ivp-extends
+
+ks:
+  face:
+    apiKey: WQByj3MyK756hWPUpj-12XzmH81BDU2S
+    apiSecret: ZA6tnACZY0QRlKSv1vmOzYgZdxRS8gDy
+    # 验证通过后跳转的页面
+    returnUrl: http://183.66.184.22:19524/face/faceH5Callback
+    tokenUrl: https://api.megvii.com/faceid/lite/get_token
+    faceUrl: https://api.megvii.com/faceid/lite/do?token=
+    # 验证后回调的接口
+    notifyUrl: http://183.66.184.22:19524/face/notify_url
+    webTitle: 活体认证
+    senceId: test20240906
