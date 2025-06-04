@@ -1,4 +1,4 @@
-package cn.com.msca.service.api.ks.dto;
+package cn.com.msca.service.api.ks.dto.req;
 
 import lombok.Data;
 
@@ -29,4 +29,5 @@ public class TokenReq {
 
     private String comparison_type;
 
+    private String uuid;
 }

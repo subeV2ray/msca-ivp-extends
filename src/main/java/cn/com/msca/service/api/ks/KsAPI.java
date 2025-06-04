@@ -1,27 +1,22 @@
 package cn.com.msca.service.api.ks;
 
-import cn.com.msca.service.api.ks.dto.TokenReq;
-import cn.com.msca.service.api.ks.dto.TokenRes;
-import cn.hutool.core.util.IdUtil;
-import cn.hutool.http.HttpUtil;
+import cn.com.msca.service.api.ks.dto.res.FaceResultRes;
+import cn.com.msca.service.api.ks.dto.res.TokenRes;
 import com.alibaba.fastjson2.JSONObject;
 import io.netty.util.internal.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.text.DateFormat;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
-import static org.apache.logging.log4j.CloseableThreadContext.put;
 
 /**
  * @program: msca-ivp-extends
@@ -35,85 +30,30 @@ import static org.apache.logging.log4j.CloseableThreadContext.put;
 public class KsAPI {
 
     @Value("${ks.face.apiKey}")
-    private String account;
+    private String apiKey;
     @Value("${ks.face.apiSecret}")
-    private String password;
+    private String apiSecret;
     @Value("${ks.face.faceUrl}")
     private String faceUrl;
     @Value("${ks.face.tokenUrl}")
     private String tokenUrl;
     @Value("${ks.face.returnUrl}")
     private String returnUrl;
+    @Value("${ks.face.notifyUrl}")
+    private String notifyUrl;
+    @Value("${ks.face.comparisonType}")
+    private String comparisonType;
+    @Value("${ks.face.procedureType}")
+    private String procedureType;
+    @Value("${ks.face.procedurePriority}")
+    private String procedurePriority;
+    @Value("${ks.face.sceneId}")
+    private String sceneId;
+    @Value("${ks.face.resultUrl}")
+    private String resultUrl;
+
 
     private final WebClient webClient;
-
-
-    /**
-     * 获取token
-     *
-     * @return
-     */
-    public Mono<TokenRes> fetchToken() {
-        TokenReq tokenReq = new TokenReq();
-        // 创建请求体
-        tokenReq.setApi_key(account);
-        tokenReq.setApi_secret(password);
-        tokenReq.setReturn_url(returnUrl);
-        tokenReq.setNotify_url(returnUrl);
-        tokenReq.setBiz_no(IdUtil.fastSimpleUUID());
-        tokenReq.setComparison_type("-1");
-        return webClient.post()
-                .uri(tokenUrl)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(tokenReq) // 发送 JSON 请求体
-                .retrieve()
-                .bodyToMono(TokenRes.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("获取token失败 " + e.getMessage())))
-                .log();
-    }
-
-    public String fetchTokenStr() throws IOException {
-        // 使用 Hutool 生成 bizNo
-        String bizNo = IdUtil.fastSimpleUUID();
-
-        // 构建表单请求体
-        Map<String, String> formBody = new HashMap<>();
-        formBody.put("api_key", account);
-        formBody.put("api_secret", password);
-        formBody.put("return_url", returnUrl);
-        formBody.put("notify_url", returnUrl);
-        formBody.put("biz_no", bizNo);
-        formBody.put("comparison_type", "-1");
-
-        OkHttpClient client = new OkHttpClient();
-        // 创建MultipartBody.Builder
-        MultipartBody.Builder builder = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM);
-        // 将paramMap中的参数添加到请求体中
-        for (Map.Entry<String, String> entry : formBody.entrySet()) {
-            builder.addFormDataPart(entry.getKey(), entry.getValue());
-        }
-        // 构造请求体
-        RequestBody body = builder.build();
-        // 创建请求对象
-        Request request = new Request.Builder()
-                .url(tokenUrl)
-                .post(body)
-                .addHeader("Host", "tapi.megvii.com")
-                .build();
-        // 执行请求
-
-        // 执行请求并获取响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful() && response.body() != null) {
-                String responseBody = response.body().string();
-                log.info("获取 token 成功: {}", responseBody);
-                return responseBody;
-            } else {
-                throw new RuntimeException("请求 token 失败，HTTP 状态码: " + response.code());
-            }
-        }
-    }
 
 
     /**
@@ -121,22 +61,87 @@ public class KsAPI {
      *
      * @return Mono<String> 包含拼接好的活体检测url
      */
-    public Mono<String> faceUrlWithTokenReactive() {
-        return fetchToken() // 获取 Mono<TokenRes>
-                .flatMap(tokenRes -> { // 使用 flatMap 转换 Mono<TokenRes> 为 Mono<String>
-                    String token = String.valueOf(tokenRes.getTime_used());
-                    if (StringUtil.isNullOrEmpty(token)) { // 使用 Guava 的 Strings.isNullOrEmpty
+    public Mono<JSONObject> faceUrlWithTokenReactive() {
+        return fetchToken(UUID.randomUUID().toString())
+                .elapsed()
+                .flatMap(tuple -> {
+                    int elapsedMillis = Math.toIntExact(tuple.getT1()); // 获取经过的时间（毫秒）
+                    TokenRes tokenRes = tuple.getT2();
+
+                    String token = String.valueOf(tokenRes.getToken());
+                    if (StringUtil.isNullOrEmpty(token)) {
                         log.error("获取token失败，token 为空");
-                        // 如果 token 为空，抛出业务异常或返回一个空的 Mono
                         return Mono.error(new RuntimeException("获取token失败，token 为空"));
                     }
-                    // 返回拼接的活体检测url
-                    return Mono.just(faceUrl + token);
+
+                    // 构建包含活体检测URL的JSON对象
+                    JSONObject jsonResponse = new JSONObject();
+                    jsonResponse.put("faceUrl", faceUrl + token);
+                    jsonResponse.put("code", HttpStatus.OK.value());
+
+                    // 打印成功获取 token 的耗时日志
+                    log.info("bizId: {}, 成功获取 token 并构建 URL，耗时: {} ms", UUID.randomUUID(), elapsedMillis);
+
+                    return Mono.just(jsonResponse);
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("获取token结果为空"))) // 处理 fetchToken 返回空 Mono 的情况
-                .onErrorResume(e -> { // 统一处理错误
+                .switchIfEmpty(Mono.error(new RuntimeException("获取token结果为空")))
+
+                .onErrorResume(e -> {
                     log.error("构建活体检测 URL 失败: {}", e.getMessage());
-                    return Mono.error(new RuntimeException("构建活体检测 URL 失败: " + e.getMessage()));
+                    JSONObject errorJsonResponse = new JSONObject();
+                    errorJsonResponse.put("error", "构建活体检测 URL 失败: " + e.getMessage());
+                    errorJsonResponse.put("code", HttpStatus.FAILED_DEPENDENCY.value());
+                    return Mono.error(new RuntimeException(errorJsonResponse.toString()));
                 });
     }
+
+    /**
+     * 获取token
+     *
+     * @return
+     */
+    private Mono<TokenRes> fetchToken(String bizId) {
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("api_key", apiKey);
+        builder.part("api_secret", apiSecret);
+        builder.part("return_url", returnUrl);
+        builder.part("notify_url", notifyUrl);
+        builder.part("biz_no", bizId);
+        builder.part("comparison_type", comparisonType);
+        builder.part("uuid", bizId);
+        builder.part("procedure_type", procedureType);
+        builder.part("procedure_priority", procedurePriority);
+        builder.part("scene_id", sceneId);
+        return webClient.post()
+                .uri(tokenUrl)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .retrieve()
+                .bodyToMono(TokenRes.class)
+                .onErrorResume(e -> Mono.error(new RuntimeException("获取token失败: " + e.getMessage())))
+                .log();
+    }
+
+    /**
+     * 获取活体检测结果
+     * @param bizId
+     * @return
+     */
+    public Mono<FaceResultRes> getFaceResult(String bizId) {
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("api_key", apiKey);
+        builder.part("api_secret", apiSecret);
+        builder.part("biz_id", bizId);
+        builder.part("return_verify_time", "1");
+        builder.part("return_image", "1");
+        return webClient.post()
+                .uri(resultUrl)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .retrieve()
+                .bodyToMono(FaceResultRes.class)
+                .onErrorResume(e -> Mono.error(new RuntimeException("获取结果失败: " + e.getMessage())))
+                .log();
+    }
+
 }

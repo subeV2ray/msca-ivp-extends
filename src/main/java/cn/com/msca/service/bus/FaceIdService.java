@@ -1,9 +1,10 @@
 package cn.com.msca.service.bus;
 
-import cn.com.msca.service.api.ks.dto.TokenRes;
+import cn.com.msca.service.api.ks.dto.res.FaceResultRes;
+import com.alibaba.fastjson2.JSONObject;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Mono;
-
-import java.io.IOException;
 
 /**
  * @program: msca-ivp-extends
@@ -12,9 +13,11 @@ import java.io.IOException;
  * @create: 2025-06-03 15:10
  **/
 public interface FaceIdService {
-    Mono<String> faceUrlWithToken();
+    Mono<JSONObject> faceUrlWithToken();
 
-    Mono<TokenRes> fetchToken();
-    String fetchTokenStr() throws IOException;
+    Mono<FaceResultRes> faceResult(String bizId);
 
+    Mono<Void> faceResultCallBack(@RequestParam String data,
+                                          @RequestParam String sign,
+                                          ServerHttpResponse response);
 }

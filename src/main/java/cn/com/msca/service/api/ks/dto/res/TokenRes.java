@@ -1,4 +1,4 @@
-package cn.com.msca.service.api.ks.dto;
+package cn.com.msca.service.api.ks.dto.res;
 
 import lombok.Data;
 

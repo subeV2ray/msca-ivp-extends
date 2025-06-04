@@ -5,15 +5,24 @@ spring:
   application:
     name: msca-ivp-extends
 
+# 旷视 活体检测
 ks:
   face:
     apiKey: WQByj3MyK756hWPUpj-12XzmH81BDU2S
     apiSecret: ZA6tnACZY0QRlKSv1vmOzYgZdxRS8gDy
-    # 验证通过后跳转的页面
-    returnUrl: http://183.66.184.22:19524/face/faceH5Callback
     tokenUrl: https://api.megvii.com/faceid/lite/get_token
     faceUrl: https://api.megvii.com/faceid/lite/do?token=
+    resultUrl: https://api.megvii.com/faceid/lite/get_result
+    # 验证通过后跳转的页面
+    returnUrl: http://183.66.184.22:19524/face/faceH5Callback
     # 验证后回调的接口
     notifyUrl: http://183.66.184.22:19524/face/notify_url
     webTitle: 活体认证
-    senceId: test20240906
+    comparisonType: -1
+    procedureType: flash
+    procedurePriority: still
+    sceneId: test20240906
+# 数据宝 人脸三要素
+sjb:
+  api-key: 4ab177540dd7c3c823c7660c40a03a0d
+  personal-url: https://api.chinadatapay.com/communication/personal/2061
