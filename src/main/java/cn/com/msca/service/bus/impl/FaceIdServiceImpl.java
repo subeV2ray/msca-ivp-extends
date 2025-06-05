@@ -8,17 +8,11 @@ import cn.com.msca.util.StringUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import io.netty.handler.codec.http.HttpResponse;
-import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
-import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -35,15 +29,17 @@ public class FaceIdServiceImpl implements FaceIdService {
 
     private final KsAPI ksAPI;
     private final SjbAPI sjbAPI;
-    @Value("${ks.apiSecret}")
+    @Value("${ks.face.apiSecret}")
     private String apiSecret;
-
+    @Value("${ks.face.returnUrl}")
+    private String returnUrl;
+    String url = "http://183.66.184.22:19523/nginx/dist/#";
     /**
      * 获取人脸url和token
      * @return
      */
     @Override
-    public Mono<JSONObject> faceUrlWithToken() {
+    public Mono<String> faceUrlWithToken() {
         return ksAPI.faceUrlWithTokenReactive();
     }
 
@@ -59,14 +55,10 @@ public class FaceIdServiceImpl implements FaceIdService {
 
     /**
      * 人脸结果回调
-     * @param bizId
-     * @param httpResponse
      * @return
      */
     @Override
-    public Mono<Void> faceResultCallBack(@RequestParam String data,
-                                          @RequestParam String sign,
-                                          ServerHttpResponse response)  {
+    public Mono<Void> faceResultCallBack(String data, String sign, ServerHttpResponse response)  {
 
         // 验签
         String expectedSign = DigestUtil.sha1Hex(apiSecret + data);
@@ -81,14 +73,52 @@ public class FaceIdServiceImpl implements FaceIdService {
         if (!pass) {
             // 根据业务逻辑处理成功后重定向
             response.setStatusCode(HttpStatus.FAILED_DEPENDENCY);
-            response.getHeaders().setLocation(URI.create("https://google.com/"));
+            response.getHeaders().setLocation(URI.create(url));
             return response.setComplete();
         }
+        JSONObject bizInfo = result.getBiz_info();
+        String bizId = bizInfo.getString("biz_id");
 
 
         response.setStatusCode(HttpStatus.FOUND);
-        response.getHeaders().setLocation(URI.create("https://google.com"));
-        return response.setComplete();
+
+
+        return faceResult(bizId)
+                .flatMap(faceResultRes -> {
+                    // 获取图片
+                    String image = faceResultRes.getImages().getString("image_best");
+
+                    return sjbAPI.faceThreeElements(image, "吴秋松", "500101199909164412")
+                            .flatMap(res -> {
+                                JSONObject faceThreeElements = JSONObject.parseObject(res);
+                                // 成功则重定向成功页面
+                                if (StringUtil.equals(faceThreeElements.getString("code"), "10000")) {
+
+                                    JSONObject resultInfo = faceThreeElements.getJSONObject("data");
+                                    Double score = resultInfo.getDouble("score");
+                                    String message  = resultInfo.getString("message");
+
+                                    // 拼接
+
+                                    if (score >= 0.7) {
+                                        // 认证通过
+                                        url = url  + "faceDetail?message=" + message + "&passed=" + true;
+                                        response.getHeaders().setLocation(URI.create(url));
+                                    } else {
+                                        // 认证不通过
+                                        url = url  + "faceDetail?message=" + message + "&passed=" + false;
+                                        response.getHeaders().setLocation(URI.create(url));
+                                    }
+                                    return response.setComplete();
+                                }
+
+                                // 失败
+                                url = url  + "faceDetail?message=" + "FAILED" + "&passed=" + false;
+                                response.getHeaders().setLocation(URI.create(url));
+                                return response.setComplete();
+                            });
+
+                });
     }
 
 

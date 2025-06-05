@@ -13,6 +13,7 @@ import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
@@ -61,7 +62,7 @@ public class KsAPI {
      *
      * @return Mono<String> 包含拼接好的活体检测url
      */
-    public Mono<JSONObject> faceUrlWithTokenReactive() {
+    public Mono<String> faceUrlWithTokenReactive() {
         return fetchToken(UUID.randomUUID().toString())
                 .elapsed()
                 .flatMap(tuple -> {
@@ -82,7 +83,7 @@ public class KsAPI {
                     // 打印成功获取 token 的耗时日志
                     log.info("bizId: {}, 成功获取 token 并构建 URL，耗时: {} ms", UUID.randomUUID(), elapsedMillis);
 
-                    return Mono.just(jsonResponse);
+                    return Mono.just(JSONObject.toJSONString(jsonResponse));
                 })
                 .switchIfEmpty(Mono.error(new RuntimeException("获取token结果为空")))
 
@@ -112,6 +113,8 @@ public class KsAPI {
         builder.part("procedure_type", procedureType);
         builder.part("procedure_priority", procedurePriority);
         builder.part("scene_id", sceneId);
+//        builder.part("action_http_method", "GET");
+        builder.part("action_http_method", "POST");
         return webClient.post()
                 .uri(tokenUrl)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -128,16 +131,17 @@ public class KsAPI {
      * @return
      */
     public Mono<FaceResultRes> getFaceResult(String bizId) {
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("api_key", apiKey);
-        builder.part("api_secret", apiSecret);
-        builder.part("biz_id", bizId);
-        builder.part("return_verify_time", "1");
-        builder.part("return_image", "1");
-        return webClient.post()
-                .uri(resultUrl)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
+        // 使用 UriComponentsBuilder 构建带有查询参数的 URL
+        String url = UriComponentsBuilder.fromUriString(resultUrl)
+                .queryParam("api_key", apiKey)
+                .queryParam("api_secret", apiSecret)
+                .queryParam("biz_id", bizId)
+                .queryParam("return_verify_time", "1")
+                .queryParam("return_image", "1")
+                .toUriString();
+
+        return webClient.get()
+                .uri(url)
                 .retrieve()
                 .bodyToMono(FaceResultRes.class)
                 .onErrorResume(e -> Mono.error(new RuntimeException("获取结果失败: " + e.getMessage())))

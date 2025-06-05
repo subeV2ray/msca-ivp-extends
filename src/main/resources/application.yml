@@ -1,5 +1,5 @@
 server:
-  port: 8089
+  port: 8028
 
 spring:
   application:
@@ -14,9 +14,11 @@ ks:
     faceUrl: https://api.megvii.com/faceid/lite/do?token=
     resultUrl: https://api.megvii.com/faceid/lite/get_result
     # 验证通过后跳转的页面
-    returnUrl: http://183.66.184.22:19524/face/faceH5Callback
+#    returnUrl: http://v2ray.natapp1.cc/faceId/faceCallBack
+    returnUrl: https://4x857838n8.zicp.fun/faceId/faceCallBack
     # 验证后回调的接口
-    notifyUrl: http://183.66.184.22:19524/face/notify_url
+#    notifyUrl: http://v2ray.natapp1.cc/faceId/notify
+    notifyUrl: https://4x857838n8.zicp.fun/faceId/notify
     webTitle: 活体认证
     comparisonType: -1
     procedureType: flash

@@ -3,6 +3,8 @@ package cn.com.msca.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.codec.multipart.DefaultPartHttpMessageReader;
+import org.springframework.http.codec.multipart.MultipartHttpMessageReader;
 import org.springframework.web.reactive.config.CorsRegistry;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,4 +21,5 @@ public class WebClientConfig implements WebFluxConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**").allowedOrigins("*");
     }
+
 }

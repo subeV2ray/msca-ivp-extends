@@ -2,18 +2,11 @@ package cn.com.msca.controller;
 
 import cn.com.msca.service.api.ks.dto.res.FaceResultRes;
 import cn.com.msca.service.bus.FaceIdService;
-import cn.com.msca.util.StringUtil;
-import cn.hutool.crypto.digest.DigestUtil;
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
-
-import java.net.URI;
 
 /**
  * @program: msca-ivp-extends
@@ -23,6 +16,7 @@ import java.net.URI;
  **/
 @RequiredArgsConstructor
 @RestController
+@Slf4j
 @RequestMapping("/faceId")
 public class FaceIdController {
 
@@ -31,15 +25,17 @@ public class FaceIdController {
 
     /**
      * 获取活体检测url
+     *
      * @return
      */
     @GetMapping("/getFaceIdUrl")
-    public Mono<JSONObject> getFaceIdUrl() {
+    public Mono<String> getFaceIdUrl() {
         return faceIdService.faceUrlWithToken();
     }
 
     /**
      * 获取活体检测结果
+     *
      * @param bizId
      * @return
      */
@@ -50,15 +46,24 @@ public class FaceIdController {
 
     /**
      * 活体检测结果回调
-     * @param data
-     * @param sign
+     *
      * @param response
      * @return
      */
-    @PostMapping("/faceResultCallBack")
-    private Mono<Void> faceResultCallBack(@RequestParam String data,
-                                          @RequestParam String sign,
-                                          ServerHttpResponse response) {
-        return faceIdService.faceResultCallBack(data, sign, response);
+//    @GetMapping("/faceCallBack")
+    @PostMapping("/faceCallBack")
+    public Mono<Void> faceResultCallBack(@RequestParam("data") String data,
+                                         ServerHttpResponse response) {
+        log.info("data: {}, sign: {}", data, "sign");
+        return faceIdService.faceResultCallBack(data, "sign", response);
     }
+
+
+//    @PostMapping("/notify")
+//    public Mono<Void> notify(@RequestParam String data,
+//                             ServerHttpResponse response) {
+//
+//        log.info("data: {}, sign: {}, res: {}", data, sign, response);
+//        return Mono.empty();
+//    }
 }
