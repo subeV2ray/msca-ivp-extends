@@ -4,6 +4,7 @@ import cn.com.msca.service.api.ks.dto.res.FaceResultRes;
 import cn.com.msca.service.bus.FaceIdService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -51,19 +52,21 @@ public class FaceIdController {
      * @return
      */
 //    @GetMapping("/faceCallBack")
-    @PostMapping("/faceCallBack")
-    public Mono<Void> faceResultCallBack(@RequestParam("data") String data,
+    @PostMapping(value = "/faceCallBack")
+    public Mono<Void> faceResultCallBack(@RequestPart("data") String data,
+                                         @RequestPart("sign") String sign,
                                          ServerHttpResponse response) {
-        log.info("data: {}, sign: {}", data, "sign");
-        return faceIdService.faceResultCallBack(data, "sign", response);
+        log.info("data: {}, sign: {}", data, sign);
+        return faceIdService.faceResultCallBack(data, sign, response);
     }
 
 
-//    @PostMapping("/notify")
-//    public Mono<Void> notify(@RequestParam String data,
-//                             ServerHttpResponse response) {
-//
-//        log.info("data: {}, sign: {}, res: {}", data, sign, response);
-//        return Mono.empty();
-//    }
+    @PostMapping("/notify")
+    public Mono<Void> notify(@RequestPart("data") String data,
+                             @RequestPart("sign") String sign,
+                             ServerHttpResponse response) {
+
+        log.info("data: {}, sign: {}, res: {}", data, sign, response);
+        return Mono.empty();
+    }
 }
