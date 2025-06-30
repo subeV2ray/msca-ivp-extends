@@ -27,7 +27,7 @@ public class SjbAPI {
 
     @Value("${sjb.personal-url}")
     private String imgUrl;
-    @Value("sjb.api-key")
+    @Value("${sjb.api-key}")
     private String key;
 
     private final WebClient webClient;
@@ -66,10 +66,21 @@ public class SjbAPI {
                             .body(BodyInserters.fromMultipartData(builder.build()))
                             .retrieve()
                             .bodyToMono(String.class)
-                            .doOnSuccess(response ->
-                                    log.info("数据宝-人脸三要素认证成功，响应: {}",
-                                            response.substring(0, Math.min(200, response.length())) + "..."))
+                            .elapsed() // 记录请求耗时（单位：毫秒）
+                            .flatMap(tuple -> {
+                                long elapsedMillis = tuple.getT1(); // 获取经过的时间（毫秒）
+                                String response = tuple.getT2();    // 获取响应结果
+
+                                log.info("人脸三要素认证完成，耗时: {} ms，响应内容: {}", elapsedMillis,
+                                        response.substring(0, Math.min(200, response.length())) + "...");
+                                return Mono.just(response); // 继续传递响应结果
+                            })
+                            .onErrorResume(e -> {
+                                log.error("人脸三要素认证请求失败: ", e);
+                                return Mono.error(new RuntimeException("三要素认证请求失败: " + e.getMessage(), e));
+                            })
                             .log();
+
                 });
     }
 
@@ -120,12 +131,20 @@ public class SjbAPI {
                 .body(BodyInserters.fromMultipartData(builder.build()))
                 .retrieve()
                 .bodyToMono(String.class)
-                .doOnSuccess(response -> log.info("图片上传成功，响应: {}", response.substring(0, Math.min(200, response.length())) + "..."))
+                .elapsed() // 记录请求耗时（单位：毫秒）
+                .flatMap(tuple -> {
+                    long elapsedMillis = tuple.getT1(); // 获取经过的时间（毫秒）
+                    String response = tuple.getT2();    // 获取响应结果
+
+                    log.info("图片上传成功，耗时: {} ms，响应: {}", elapsedMillis, response.substring(0, Math.min(200, response.length())) + "...");
+                    return Mono.just(response); // 继续传递响应
+                })
                 .onErrorResume(e -> {
                     log.error("图片上传失败: {}", e.getMessage(), e);
                     return Mono.error(new RuntimeException("上传图片失败: " + e.getMessage()));
                 })
                 .log();
+
     }
 
     /**

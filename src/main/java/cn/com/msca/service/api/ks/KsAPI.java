@@ -13,6 +13,7 @@ import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
@@ -62,16 +63,23 @@ public class KsAPI {
      *
      * @return Mono<String> 包含拼接好的活体检测url
      */
+    /**
+     * 获取活体检测url
+     *
+     * @return Mono<String> 包含拼接好的活体检测url
+     */
     public Mono<String> faceUrlWithTokenReactive() {
-        return fetchToken(UUID.randomUUID().toString())
+        String bizId = UUID.randomUUID().toString();
+
+        return fetchToken(bizId)
                 .elapsed()
                 .flatMap(tuple -> {
-                    int elapsedMillis = Math.toIntExact(tuple.getT1()); // 获取经过的时间（毫秒）
+                    long elapsedMillis = tuple.getT1(); // 获取经过的时间（毫秒）
                     TokenRes tokenRes = tuple.getT2();
 
                     String token = String.valueOf(tokenRes.getToken());
                     if (StringUtil.isNullOrEmpty(token)) {
-                        log.error("获取token失败，token 为空");
+                        log.error("bizId: {}, 获取token失败，token 为空", bizId);
                         return Mono.error(new RuntimeException("获取token失败，token 为空"));
                     }
 
@@ -81,25 +89,33 @@ public class KsAPI {
                     jsonResponse.put("code", HttpStatus.OK.value());
 
                     // 打印成功获取 token 的耗时日志
-                    log.info("bizId: {}, 成功获取 token 并构建 URL，耗时: {} ms", UUID.randomUUID(), elapsedMillis);
+                    log.info("bizId: {}, 成功获取 token 并构建 URL，耗时: {} ms", bizId, elapsedMillis);
 
                     return Mono.just(JSONObject.toJSONString(jsonResponse));
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("获取token结果为空")))
-
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("bizId: {}, 获取token结果为空", bizId);
+                    return Mono.error(new RuntimeException("获取token结果为空"));
+                }))
                 .onErrorResume(e -> {
-                    log.error("构建活体检测 URL 失败: {}", e.getMessage());
+                    log.error("bizId: {}, 构建活体检测 URL 失败: {}", bizId, e.getMessage(), e);
                     JSONObject errorJsonResponse = new JSONObject();
                     errorJsonResponse.put("error", "构建活体检测 URL 失败: " + e.getMessage());
                     errorJsonResponse.put("code", HttpStatus.FAILED_DEPENDENCY.value());
-                    return Mono.error(new RuntimeException(errorJsonResponse.toString()));
+                    return Mono.error(new RuntimeException(errorJsonResponse.toString(), e));
                 });
     }
+
 
     /**
      * 获取token
      *
      * @return
+     */
+    /**
+     * 获取token
+     *
+     * @return TokenRes 响应结果封装
      */
     private Mono<TokenRes> fetchToken(String bizId) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -113,17 +129,27 @@ public class KsAPI {
         builder.part("procedure_type", procedureType);
         builder.part("procedure_priority", procedurePriority);
         builder.part("scene_id", sceneId);
-//        builder.part("action_http_method", "GET");
         builder.part("action_http_method", "POST");
+
         return webClient.post()
                 .uri(tokenUrl)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(builder.build()))
                 .retrieve()
                 .bodyToMono(TokenRes.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("获取token失败: " + e.getMessage())))
+                .onErrorResume(e -> {
+                    if (e instanceof WebClientResponseException exception) {
+                        String errorBody = exception.getResponseBodyAsString();
+                        log.error("获取token失败，状态码: {}, 响应内容: {}", exception.getStatusCode(), errorBody, e);
+                        return Mono.error(new RuntimeException("获取token失败: " + errorBody, e));
+                    } else {
+                        log.error("获取token发生未知错误: ", e);
+                        return Mono.error(new RuntimeException("获取token失败: " + e.getMessage(), e));
+                    }
+                })
                 .log();
     }
+
 
     /**
      * 获取活体检测结果
@@ -136,7 +162,7 @@ public class KsAPI {
                 .queryParam("api_key", apiKey)
                 .queryParam("api_secret", apiSecret)
                 .queryParam("biz_id", bizId)
-                .queryParam("return_verify_time", "1")
+                .queryParam("return_verify_time", "0")
                 .queryParam("return_image", "1")
                 .toUriString();
 
@@ -144,8 +170,28 @@ public class KsAPI {
                 .uri(url)
                 .retrieve()
                 .bodyToMono(FaceResultRes.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("获取结果失败: " + e.getMessage())))
+                .elapsed() // 记录耗时（单位：毫秒）
+                .flatMap(tuple -> {
+                    long elapsedMillis = tuple.getT1(); // 获取经过的时间（毫秒）
+                    FaceResultRes result = tuple.getT2(); // 获取响应结果
+
+                    log.info("获取旷视结果成功，耗时: {} ms", elapsedMillis);
+                    return Mono.just(result); // 继续传递结果
+                })
+                .onErrorResume(e -> {
+                    if (e instanceof WebClientResponseException exception) {
+                        String errorBody = exception.getResponseBodyAsString();
+                        log.error("调用活体检测接口失败，状态码: {}, 响应内容: {}", exception.getStatusCode(), errorBody);
+                        return Mono.error(new RuntimeException("获取结果失败: " + errorBody, e));
+                    } else {
+                        log.error("调用活体检测接口发生未知错误: ", e);
+                        return Mono.error(new RuntimeException("获取结果失败: " + e.getMessage(), e));
+                    }
+                })
                 .log();
+
     }
+
+
 
 }

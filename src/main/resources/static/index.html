@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>回调结果</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .title {
+            font-size: 22px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .item {
+            margin-bottom: 15px;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+        .value {
+            font-size: 18px;
+            color: #007bff;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">回调参数结果</div>
+
+    <div class="item">
+        <div class="label">biz_id:</div>
+        <div class="value" id="bizId">加载中...</div>
+    </div>
+
+    <div class="item">
+        <div class="label">message:</div>
+        <div class="value" id="message">加载中...</div>
+    </div>
+
+    <div class="item">
+        <div class="label">passed:</div>
+        <div class="value" id="passed">加载中...</div>
+    </div>
+</div>
+
+<script>
+    function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    document.getElementById("bizId").textContent = getQueryParam("biz_id") || "未传入";
+    document.getElementById("message").textContent = getQueryParam("message") || "未传入";
+    document.getElementById("passed").textContent = getQueryParam("passed") || "未传入";
+</script>
+</body>
+</html>

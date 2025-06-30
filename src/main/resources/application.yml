@@ -4,7 +4,23 @@ server:
 spring:
   application:
     name: msca-ivp-extends
-
+  webflux:
+    problemdetails:
+      enabled: true
+  level:
+    org:
+      springframework:
+        web:
+          reactive:
+            result:
+              method: DEBUG
+            function:
+              server: DEBUG
+          server: DEBUG
+    reactor:
+      netty:
+        http:
+          server: DEBUG
 # 旷视 活体检测
 ks:
   face:
@@ -14,17 +30,29 @@ ks:
     faceUrl: https://api.megvii.com/faceid/lite/do?token=
     resultUrl: https://api.megvii.com/faceid/lite/get_result
     # 验证通过后跳转的页面
-#    returnUrl: http://v2ray.natapp1.cc/faceId/faceCallBack
-    returnUrl: https://4x857838n8.zicp.fun/faceId/faceCallBack
+    returnUrl: https://gptrqnxa7u.by.takin.cc/faceId/faceCallBack
+#    returnUrl: https://4x857838n8.zicp.fun/faceId/faceCallBack
     # 验证后回调的接口
-#    notifyUrl: http://v2ray.natapp1.cc/faceId/notify
-    notifyUrl: https://4x857838n8.zicp.fun/faceId/notify
+    notifyUrl: https://gptrqnxa7u.by.takin.cc/faceId/notify
+#    notifyUrl: https://4x857838n8.zicp.fun/faceId/notify
     webTitle: 活体认证
     comparisonType: -1
     procedureType: flash
     procedurePriority: still
     sceneId: test20240906
+
+
 # 数据宝 人脸三要素
 sjb:
   api-key: 4ab177540dd7c3c823c7660c40a03a0d
   personal-url: https://api.chinadatapay.com/communication/personal/2061
+
+# dts
+dts:
+  url: https://esigncloud.shujuliutong.com:8443
+  app-id: 51ddcbdf0da74960b13c9c8ae8966110
+  app-secret: 301dd9827cad4f0cbbc18e2e14283ebe
+
+  token-url: https://esigncloud.shujuliutong.com:8443/getToken
+  two-element-url: ${dts.url}/signature/v1/two-element
+  three-element-url: ${dts.url}/signature/v1/three-element

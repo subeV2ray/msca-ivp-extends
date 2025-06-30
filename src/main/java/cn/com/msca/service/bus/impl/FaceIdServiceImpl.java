@@ -9,10 +9,12 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -24,6 +26,7 @@ import java.net.URI;
  * @create: 2025-06-03 15:11
  **/
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class FaceIdServiceImpl implements FaceIdService {
 
@@ -33,9 +36,11 @@ public class FaceIdServiceImpl implements FaceIdService {
     private String apiSecret;
     @Value("${ks.face.returnUrl}")
     private String returnUrl;
-    String url = "http://183.66.184.22:19523/nginx/dist/#";
+    String url = "https://gptrqnxa7u.by.takin.cc/";
+
     /**
      * 获取人脸url和token
+     *
      * @return
      */
     @Override
@@ -45,6 +50,7 @@ public class FaceIdServiceImpl implements FaceIdService {
 
     /**
      * 获取人脸结果
+     *
      * @param bizId
      * @return
      */
@@ -55,11 +61,11 @@ public class FaceIdServiceImpl implements FaceIdService {
 
     /**
      * 人脸结果回调
+     *
      * @return
      */
     @Override
-    public Mono<Void> faceResultCallBack(String data, String sign, ServerHttpResponse response)  {
-
+    public Mono<Void> faceResultCallBack(String data, String sign, ServerHttpResponse response) {
         // 验签
         String expectedSign = DigestUtil.sha1Hex(apiSecret + data);
         if (!expectedSign.equals(sign)) {
@@ -67,58 +73,58 @@ public class FaceIdServiceImpl implements FaceIdService {
             return response.setComplete();
         }
 
-        // 处理 JSON 内容
         FaceResultRes result = JSON.parseObject(data, FaceResultRes.class);
+//        String name = result.getIdcard_info().getString("name");
+//        String idCard = result.getIdcard_info().getString("idcard");
         boolean pass = StringUtil.equals(result.getLiveness_result().getString("result"), "PASS");
+
+
         if (!pass) {
-            // 根据业务逻辑处理成功后重定向
-            response.setStatusCode(HttpStatus.FAILED_DEPENDENCY);
-            response.getHeaders().setLocation(URI.create(url));
-            return response.setComplete();
+            String redirectUrl = buildRedirectUrl(url, "吴秋松", false);
+            return redirect(response, redirectUrl);
         }
-        JSONObject bizInfo = result.getBiz_info();
-        String bizId = bizInfo.getString("biz_id");
 
-
-        response.setStatusCode(HttpStatus.FOUND);
-
+        String bizId = result.getBiz_info().getString("biz_id");
 
         return faceResult(bizId)
                 .flatMap(faceResultRes -> {
-                    // 获取图片
                     String image = faceResultRes.getImages().getString("image_best");
-
                     return sjbAPI.faceThreeElements(image, "吴秋松", "500101199909164412")
                             .flatMap(res -> {
                                 JSONObject faceThreeElements = JSONObject.parseObject(res);
-                                // 成功则重定向成功页面
-                                if (StringUtil.equals(faceThreeElements.getString("code"), "10000")) {
-
-                                    JSONObject resultInfo = faceThreeElements.getJSONObject("data");
-                                    Double score = resultInfo.getDouble("score");
-                                    String message  = resultInfo.getString("message");
-
-                                    // 拼接
-
-                                    if (score >= 0.7) {
-                                        // 认证通过
-                                        url = url  + "faceDetail?message=" + message + "&passed=" + true;
-                                        response.getHeaders().setLocation(URI.create(url));
-                                    } else {
-                                        // 认证不通过
-                                        url = url  + "faceDetail?message=" + message + "&passed=" + false;
-                                        response.getHeaders().setLocation(URI.create(url));
-                                    }
-                                    return response.setComplete();
+                                if (!"10000".equals(faceThreeElements.getString("code"))) {
+                                    String redirectUrl = buildRedirectUrl(url, "吴秋松", false);
+                                    return redirect(response, redirectUrl);
                                 }
 
-                                // 失败
-                                url = url  + "faceDetail?message=" + "FAILED" + "&passed=" + false;
-                                response.getHeaders().setLocation(URI.create(url));
-                                return response.setComplete();
-                            });
+                                JSONObject dataObj = faceThreeElements.getJSONObject("data");
+                                Double score = dataObj.getDouble("score");
+                                String message = dataObj.getString("message");
+                                boolean passed = score != null && score >= 0.7;
 
-                });
+                                String redirectUrl = buildRedirectUrl(url, message, passed);
+                                return redirect(response, redirectUrl);
+                            });
+                })
+                .onErrorResume(e -> {
+                    log.error("人脸结果回调失败: ", e);
+                    String redirectUrl = buildRedirectUrl(url, "吴秋松", false);
+                    return redirect(response, redirectUrl);
+                })
+                .log();
+    }
+
+    private String buildRedirectUrl(String baseUrl, String message, boolean passed) {
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("message", message)
+                .queryParam("passed", passed)
+                .toUriString();
+    }
+
+    private Mono<Void> redirect(ServerHttpResponse response, String url) {
+        response.setStatusCode(HttpStatus.FOUND);
+        response.getHeaders().setLocation(URI.create(url));
+        return response.setComplete();
     }
 
 

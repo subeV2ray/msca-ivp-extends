@@ -1,5 +1,6 @@
 package cn.com.msca.controller;
 
+import cn.com.msca.service.api.ks.dto.req.FaceCallbackRequest;
 import cn.com.msca.service.api.ks.dto.res.FaceResultRes;
 import cn.com.msca.service.bus.FaceIdService;
 import lombok.RequiredArgsConstructor;
@@ -52,21 +53,23 @@ public class FaceIdController {
      * @return
      */
 //    @GetMapping("/faceCallBack")
-    @PostMapping(value = "/faceCallBack")
-    public Mono<Void> faceResultCallBack(@RequestPart("data") String data,
-                                         @RequestPart("sign") String sign,
+    @PostMapping(value = "/faceCallBack", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public Mono<Void> faceResultCallBack(@ModelAttribute FaceCallbackRequest faceCallbackRequest,
                                          ServerHttpResponse response) {
+
+        String data = faceCallbackRequest.getData();
+        String sign = faceCallbackRequest.getSign();
         log.info("data: {}, sign: {}", data, sign);
+
         return faceIdService.faceResultCallBack(data, sign, response);
     }
 
 
-    @PostMapping("/notify")
-    public Mono<Void> notify(@RequestPart("data") String data,
-                             @RequestPart("sign") String sign,
-                             ServerHttpResponse response) {
+    @PostMapping(value = "/notify", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public Mono<Void> notify(String data,
+                             String sign) {
 
-        log.info("data: {}, sign: {}, res: {}", data, sign, response);
+        log.info("data: {}, sign: {}, res: {}", data, sign, null);
         return Mono.empty();
     }
 }
